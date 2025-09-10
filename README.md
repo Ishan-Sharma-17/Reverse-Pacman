@@ -11,7 +11,7 @@ After winning/losing, to restart the game, click on any button in your keyboard.
 Here are some future functionalities that I am yet to add:
 1) Improve ghost searching algorithm
 2) Add mutltiple levels
-3) Win/Loss screens
+3) Add Difficulty
 
 Attributions:
 1) https://favpng.com/png_view/packman-ms-pac-man-pac-man-world-3-ghosts-png/g8b3izUB - Red Ghost image

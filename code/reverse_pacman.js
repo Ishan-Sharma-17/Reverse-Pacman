@@ -187,6 +187,7 @@ function update() {
     updateUI();
     
     if (gameOver){
+        showResult();
         return;
     }
     setTimeout(update, 1000/fps); //We use timeout instead of setInterval to ensure that the next update only happens after the current one is done
@@ -216,10 +217,25 @@ function updateUI() {
     context.fillText("Lives: " + lives, mapWidth - 60, mapHeight - 10);
 }
 
+function showResult() {
+    const resultPopup = document.getElementById("resultPopup");
+    if (foods.length == 0 || lives == 0){
+        resultPopup.innerText = "You lost The Game! :( Press any key to restart."
+    }
+    else {
+        resultPopup.innerText = "You won The Game! :) Your score is " + score.toString() + ". Press any key to restart."
+    }
+    resultPopup.style.display = "block";
+}
+
 //Functions used by reverse pacman
 function changeDirectionRP(e) {
     if (gameOver) {
         gameOver = false;
+
+        const resultPopup = document.getElementById("resultPopup");
+        resultPopup.style.display = "none";
+
         loadMap();
         update();
         return;
@@ -239,6 +255,42 @@ function changeDirectionRP(e) {
 }
 
 function changeDirectionGhosts(ghost){
+    //Ghost chooses direction randomly, but probabilities of directions are altered to chase remaining food pellets and avoid/hunt reverse pacman depending on the mode.
+
+    if (ghost.image != angryGhostImage){
+        if (ghost.x < (columnsCount - 1) * tileLength && ghost.x > 0) {
+            let directions = [];
+            let count = 3; //Higher count means more probability of going in a direction different from current and reverse direction
+            for (let i = 0; i < count; i++){
+                directions.push("U");
+                directions.push("L");
+                directions.push("D");
+                directions.push("R");
+            }
+            for (let i = 0; i < count - 1; i++){
+                directions.splice(directions.indexOf(ghost.direction) + 2 + 3 * i, 1); //Remove opposite direction to avoid going back
+            }
+            let randomDirection = directions[Math.floor(Math.random() * directions.length)];
+            ghost.updateDirection(randomDirection);
+        }
+    }
+    else {
+        if (ghost.x < (columnsCount - 1) * tileLength && ghost.x > 0) {
+            let directions = [];
+            let count = 3; //Higher count means more probability of going in a direction different from current and reverse direction
+            for (let i = 0; i < count; i++){
+                directions.push("U");
+                directions.push("L");
+                directions.push("D");
+                directions.push("R");
+            }
+            for (let i = 0; i < count - 1; i++){
+                directions.splice(directions.indexOf(ghost.direction) + 2 + 3 * i, 1); //Remove opposite direction to avoid going back
+            }
+            let randomDirection = directions[Math.floor(Math.random() * directions.length)];
+            ghost.updateDirection(randomDirection);
+        }
+    }
     if (ghost.x < (columnsCount - 1) * tileLength && ghost.x > 0) {
         let directions = [];
         let count = 3;
@@ -295,7 +347,6 @@ function move(entity) {
                 lives -= 1;
                 resetEntities();
                 if (lives == 0){
-                    console.log("Game over");
                     gameOver = true;
                     return;
                 }
@@ -304,9 +355,11 @@ function move(entity) {
         for (let powerUp of powerUps){
             if (willCollide(entity, powerUp)){
                 powerUps.splice(powerUps.indexOf(powerUp), 1);
-                entity.image = angryGhostImage;
-                entity.ghostStartTime = Date.now();
-                entity.ghostEndTime = Date.now();
+                for (let ghost of ghosts){
+                    ghost.image = angryGhostImage;
+                    ghost.ghostStartTime = Date.now();
+                    ghost.ghostEndTime = Date.now();
+                }
             }
         }
 
@@ -321,15 +374,16 @@ function move(entity) {
     entity.x += entity.velocityX;
     entity.y += entity.velocityY;
 
-    if (entity.x == columnsCount * tileLength) {
+    if (entity.x >= columnsCount * tileLength) {
         entity.x = 0;
     }
-    else if (entity.x + entity.width == 0) {
+    else if (entity.x + entity.width <= 0) {
         entity.x = columnsCount * tileLength - entity.width;
     }
 }
 
 function resetEntities(){
+    //Reset reverse pacman
     reversePacman.x = reversePacman.startX;
     reversePacman.y = reversePacman.startY;
     reversePacman.direction = "R";
@@ -337,9 +391,12 @@ function resetEntities(){
     reversePacman.velocityY = 0;
     reversePacman.pendingDirection = null;
 
+    //Reset Ghosts
     for (let ghost of ghosts){
         ghost.x = ghost.startX;
         ghost.y = ghost.startY;
+        ghost.velocityX = 0;
+        ghost.velocityY = 0;
         ghost.image = ghost.startImage;
     }
 }
@@ -373,32 +430,42 @@ class Block {
         let oldVelocityX = this.velocityX;
         let oldVelocityY = this.velocityY;
         let oldDirection = this.direction;
-
-        this.direction = newDirection;
         
+        this.direction = newDirection;
+        let absVelocity = 0
+        if (this.type == "G" && this.image == angryGhostImage){
+            absVelocity = tileLength/fps*10;
+        }
+        else if (this.type == "G" && this.image != angryGhostImage){
+            absVelocity = tileLength/fps*7.5;
+        }
+        else if (this.type == "R"){
+            absVelocity = tileLength/fps*5;
+        }
+
         if (this.direction == "U") {
             this.velocityX = 0;
-            this.velocityY = -tileLength/fps*5;
+            this.velocityY = -absVelocity;
             if (this.image != rpUpImage && this == reversePacman){
                 this.image = rpUpImage;
             }
         }
         else if (this.direction == "D") {
             this.velocityX = 0;
-            this.velocityY = tileLength/fps*5;
+            this.velocityY = absVelocity;
             if (this.image != rpDownImage && this == reversePacman){
                 this.image = rpDownImage;
             }
         }
         else if (this.direction == "L") {
-            this.velocityX = -tileLength/fps*5;
+            this.velocityX = -absVelocity;
             this.velocityY = 0;
             if (this.image != rpLeftImage && this == reversePacman){
                 this.image = rpLeftImage;
             }
         }
         else if (this.direction == "R") {
-            this.velocityX = tileLength/fps*5;
+            this.velocityX = absVelocity;
             this.velocityY = 0;
             if (this.image != rpRightImage && this == reversePacman){
                 this.image = rpRightImage;

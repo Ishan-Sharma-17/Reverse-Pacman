@@ -5,3 +5,16 @@ body {
 #map {
     background-color: black;
 }
+
+#resultPopup {
+    display: none;
+    position: absolute;
+    top: 35%;
+    left: 30%;
+    background-color: rgb(0, 26, 255);
+    color: white;
+    padding: 20px;
+    border: 2px solid black;
+    font-size: 24px;
+    font-weight: bold;
+}
