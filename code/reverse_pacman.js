@@ -38,9 +38,11 @@ let start = Date.now(), end = Date.now();
 
 let walls = [];
 let foods = [];
+let powerUps = [];
 let ghosts = [];
 let reversePacman;
 
+//Game Data
 let score = 0;
 let lives = 3;
 let gameOver = false;
@@ -50,6 +52,7 @@ let redGhostImage;
 let blueGhostImage;
 let pinkGhostImage;
 let orangeGhostImage;
+let angryGhostImage;
 
 let rpUpImage;
 let rpDownImage;
@@ -57,6 +60,9 @@ let rpLeftImage;
 let rpRightImage;
 
 let wallImage;
+let powerUpImage;
+
+//Initialize the game
 
 window.onload = function() {
     map = document.getElementById("map");
@@ -77,6 +83,9 @@ function loadImages() {
     wallImage = new Image();
     wallImage.src = "../resources/wall.png";
 
+    powerUpImage = new Image();
+    powerUpImage.src = "../resources/power up.png";
+
     redGhostImage = new Image();
     redGhostImage.src = "../resources/red ghost.png";
 
@@ -88,6 +97,9 @@ function loadImages() {
 
     orangeGhostImage = new Image();
     orangeGhostImage.src = "../resources/orange ghost.png";
+
+    angryGhostImage = new Image();
+    angryGhostImage.src = "../resources/angry ghost.png";
 
     rpUpImage = new Image();
     rpUpImage.src = "../resources/reverse pacman up.png";
@@ -107,6 +119,7 @@ function loadMap() {
     walls = [];
     foods = [];
     ghosts = [];
+    powerUps = [];
     
     for (let row = 0; row < rowsCount; row++) {
         for (let column = 0; column < columnsCount; column++) {
@@ -118,9 +131,14 @@ function loadMap() {
                 let wall = new Block(wallImage, "W", x, y, tileLength, tileLength);
                 walls.push(wall);
             }
+
             else if (tileChar == ' ') {
                 let food = new Block(null, "F", x + 14, y + 14, 4, 4);
                 foods.push(food);
+            }
+            else if (tileChar == 'P') {
+                let powerUp = new Block(powerUpImage, "P", x + 8, y + 8, 16, 16);
+                powerUps.push(powerUp);
             }
 
             else if (tileChar == 'R') {
@@ -146,6 +164,7 @@ function loadMap() {
         }
     }
     score = foods.length * 10
+    lives = 3;
 }
 
 //Main function
@@ -186,6 +205,9 @@ function updateUI() {
     for (let food of foods) {
         context.fillStyle = "white";
         context.fillRect(food.x, food.y, food.width, food.height);
+    }
+    for (let powerUp of powerUps) {
+        context.drawImage(powerUp.image, powerUp.x, powerUp.y, powerUp.width, powerUp.height);
     }
 
     context.fillStyle = "white";
@@ -262,10 +284,36 @@ function move(entity) {
         }
 
         if (willCollide(entity, reversePacman)){
-            ghosts.splice(ghosts.indexOf(entity), 1);
-            if (ghosts.length == 0){
-                gameOver = true;
-                return;
+            if (entity.image != angryGhostImage){
+                ghosts.splice(ghosts.indexOf(entity), 1);
+                if (ghosts.length == 0){
+                    gameOver = true;
+                    return;
+                }
+            }
+            else {
+                lives -= 1;
+                resetEntities();
+                if (lives == 0){
+                    console.log("Game over");
+                    gameOver = true;
+                    return;
+                }
+            }
+        }
+        for (let powerUp of powerUps){
+            if (willCollide(entity, powerUp)){
+                powerUps.splice(powerUps.indexOf(powerUp), 1);
+                entity.image = angryGhostImage;
+                entity.ghostStartTime = Date.now();
+                entity.ghostEndTime = Date.now();
+            }
+        }
+
+        if (entity.image == angryGhostImage){
+            entity.ghostEndTime = Date.now();
+            if (entity.ghostEndTime - entity.ghostStartTime > 10000){
+                entity.image = entity.startImage;
             }
         }
     }
@@ -278,6 +326,21 @@ function move(entity) {
     }
     else if (entity.x + entity.width == 0) {
         entity.x = columnsCount * tileLength - entity.width;
+    }
+}
+
+function resetEntities(){
+    reversePacman.x = reversePacman.startX;
+    reversePacman.y = reversePacman.startY;
+    reversePacman.direction = "R";
+    reversePacman.velocityX = 0;
+    reversePacman.velocityY = 0;
+    reversePacman.pendingDirection = null;
+
+    for (let ghost of ghosts){
+        ghost.x = ghost.startX;
+        ghost.y = ghost.startY;
+        ghost.image = ghost.startImage;
     }
 }
 
@@ -294,6 +357,11 @@ class Block {
         //Used to reset position of pacman and ghosts
         this.startX = x;
         this.startY = y;
+        this.startImage = image;
+
+        //Only for ghosts when powered up
+        this.ghostStartTime = 0;
+        this.ghostEndTime = 0;
 
         this.direction = "R"; //Default initial direction
         this.pendingDirection = null; //Used for buffered direction change
